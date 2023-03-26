@@ -1,0 +1,35 @@
+#!/bin/bash
+#gzip header simplifier
+#see http://www.zlib.org/rfc-gzip.html
+export LC_ALL=C
+function err {
+echo "$1 error" >&2
+exit 1
+}
+function eat0 {
+#read \x00 terminated string
+local s
+read -rd "" s || err read
+}
+function eat_xflags {
+local xlen
+[[ $(dd status=none iflag=fullblock count=1 bs=2 | xxd -c2 -p) =~ ^([[:xdigit:]]{2})([[:xdigit:]]{2})$ ]] || err "read xlen"
+let "xlen=0x${BASH_REMATCH[2]}${BASH_REMATCH[1]}"
+dd status=none iflag=fullblock count=1 "bs=$xlen" of=/dev/null || err "read xflags"
+}
+function eat_crc16 {
+dd status=none iflag=fullblock count=1 bs=2 of=/dev/null || err "read crc16"
+}
+function eat_header {
+[[ $(dd status=none iflag=fullblock count=1 bs=10 | xxd -c10 -p) =~ ^1f8b08([[:xdigit:]]{2})[[:xdigit:]]{12}$ ]] || err "bad header"
+local "flg=0x${BASH_REMATCH[1]}"
+((flg&224)) && err "FLG reserved bits not 0"
+((flg&4)) && eat_xflags
+((flg&8)) && eat0
+((flg&16)) && eat0
+((flg&2)) && eat_crc16
+}
+eat_header
+echo -ne '\x1f\x8b\b\0\0\0\0\0\0\xff' || err "write header"
+exec cat
+err "exec cat"
