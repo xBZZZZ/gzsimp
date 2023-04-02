@@ -2,6 +2,22 @@
 #gzip header simplifier
 #see http://www.zlib.org/rfc-gzip.html
 export LC_ALL=C
+while [ "$#" != 0 ]
+do case "$1" in
+--help)echo "usage: $0 [if=/path/to/in.gz] [of=/path/to/out.gz]
+default if (in file) is stdin
+default of (out file) is stdout
+simplify gzip header and cat remaining data from if to of
+see https://github.com/xBZZZZ/gzsimp"
+exit "$?";;
+if=*)exec < "${1:3}" || exit 1;;
+of=*)exec > "${1:3}" || exit 1;;
+*)echo "I don't understand argument: $1
+try: $0 --help" >&2
+exit 1;;
+esac
+shift
+done
 function err {
 echo "$1 error" >&2
 exit 1
