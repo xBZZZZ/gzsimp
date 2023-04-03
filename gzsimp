@@ -2,16 +2,29 @@
 #gzip header simplifier
 #see http://www.zlib.org/rfc-gzip.html
 export LC_ALL=C
+ftext=
+os=ff
 while [ "$#" != 0 ]
 do case "$1" in
---help)echo "usage: $0 [if=/path/to/in.gz] [of=/path/to/out.gz]
+--help)echo "usage: $0 [if=/path/to/in.gz] [of=/path/to/out.gz] [ftext] [os=OSBYTE]
+
+simplify gzip header and cat remaining data from if to of
 default if (in file) is stdin
 default of (out file) is stdout
-simplify gzip header and cat remaining data from if to of
-see https://github.com/xBZZZZ/gzsimp"
+ftext means turn on FTEXT flag in out header (see gzip spec)
+OSBYTE is integer in range [0;255] and is the OS byte of header (see gzip spec)
+default os=255
+
+gzip spec: http://www.zlib.org/rfc-gzip.html
+gzsimp github: https://github.com/xBZZZZ/gzsimp"
 exit "$?";;
 if=*)exec < "${1:3}" || exit 1;;
 of=*)exec > "${1:3}" || exit 1;;
+ftext)ftext=1;;
+os=*)printf -v os %02x "${1:3}" && [[ $os =~ ^[[:xdigit:]]{2}$ ]] || {
+echo "bad os: ${1:3}" >&2
+exit 1
+};;
 *)echo "I don't understand argument: $1
 try: $0 --help" >&2
 exit 1;;
@@ -46,6 +59,6 @@ local "flg=0x${BASH_REMATCH[1]}"
 ((flg&2)) && eat_crc16
 }
 eat_header
-echo -ne '\x1f\x8b\b\0\0\0\0\0\0\xff' || err "write header"
+echo -ne '\x1f\x8b\b\0'"$ftext"'\0\0\0\0\0\x'"$os" || err "write header"
 exec cat
 err "exec cat"
